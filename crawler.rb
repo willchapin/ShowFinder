@@ -13,16 +13,35 @@ module ShowFinder
     end
 
     def crawl(uri)
-      source = Net::HTTP.get(uri)
-      anchors = get_anchors(source)
-      anchors.each do |anchor|
-        uri = get_uri(anchor)
-        add_uri_to_waiting_uri(uri)
+      begin
+        source = Net::HTTP.get(uri)
+        anchors = get_anchors(source)
+        anchors.each do |anchor|
+          begin
+            uri = get_uri(anchor)
+            add_uri_to_waiting_uri(uri)
+          rescue
+            puts "something went wrong"
+          end
+        end
+      rescue
+        puts "something went wrong!"
       end
-      next_to_crawl = @waiting_uris.pop
-      puts next_to_crawl
-      puts @waiting_uris.length
-      crawl(URI(next_to_crawl))
+
+      valid_uri = nil
+      until valid_uri
+        next_to_crawl = @waiting_uris.pop
+        @crawled_uris << next_to_crawl
+        puts next_to_crawl
+        puts @waiting_uris.length
+        begin
+          next_uri = URI(next_to_crawl)
+          valid_uri = true
+        rescue
+          puts "something really went wrong!"
+        end
+      end
+      crawl(next_uri)
     end
 
     def get_anchors(source)
@@ -34,14 +53,14 @@ module ShowFinder
     end
 
     def add_uri_to_waiting_uri(uri)
-      if /^http/.match(uri)
-        @waiting_uris << uri
-      else
-        @waiting_uris << @root_uri + uri
+      unless @crawled_uris.include?(uri)
+        if /^http/.match(uri)
+          @waiting_uris << uri
+        else
+          @waiting_uris << @root_uri + uri
+        end
       end
     end
-
-
   end
 end
 
