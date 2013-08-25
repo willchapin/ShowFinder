@@ -30,7 +30,6 @@ module ShowFinder
         end
       rescue => error
         puts error
-        puts "Net::HTTP.get failed."
       end
     end
 
@@ -50,5 +49,7 @@ module ShowFinder
     def different_host?(url)
       url.host != @host
     end
+
+    
   end
 end
