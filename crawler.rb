@@ -1,66 +1,46 @@
-require 'net/http'
-
 module ShowFinder
   class Crawler
 
-    attr_accessor :root_uri, :waiting_uris, :crawled_uris
+    attr_accessor :uncrawled_list, :crawled_list
 
-    def initialize(root)
-      @waiting_uris = [root]
-      @crawled_uris = []
-      @root_uri = root
-      crawl(root)
+    def initialize(root_url)
+      @uncrawled_list = [root_url]
+      @crawled_list = []
+      run
     end
 
-    def crawl(uri)
+    def run
+      until @uncrawled_list.empty?
+        puts "togo: " + @uncrawled_list.length.to_s
+        puts "crawled: " + @crawled_list.length.to_s
+        next_url = @uncrawled_list.pop
+        @crawled_list << next_url
+        puts next_url
+        crawl(URI(next_url))
+      end
+    end
+
+    def crawl(page_url)
       begin
-        source = Net::HTTP.get(uri)
-        anchors = get_anchors(source)
-        anchors.each do |anchor|
-          begin
-            uri = get_uri(anchor)
-            add_uri_to_waiting_uri(uri)
-          rescue
-            puts "something went wrong"
-          end
+        source = Net::HTTP.get(page_url)
+        hrefs = get_hrefs(source)
+        hrefs.each do |href|
+          add_to_uncrawled_list(page_url, href[0])
         end
       rescue
-        puts "something went wrong!"
+        "Net::HTTP.get failed."
       end
-
-      valid_uri = nil
-      until valid_uri
-        next_to_crawl = @waiting_uris.pop
-        @crawled_uris << next_to_crawl
-        puts next_to_crawl
-        puts @waiting_uris.length
-        begin
-          next_uri = URI(next_to_crawl)
-          valid_uri = true
-        rescue
-          puts "something really went wrong!"
-        end
-      end
-      crawl(next_uri)
     end
 
-    def get_anchors(source)
-      source.scan(/<a.*>.*<\/a>/)
+    def get_hrefs(source)
+      source.scan(/<a.*href\s*=\s*["']([^'"]*)['"]>.*<\/a>/)
     end
 
-    def get_uri(link)
-      link.scan(/href\s*=\s*["']([^'"]*)['"]/)[0][0]
-    end
-
-    def add_uri_to_waiting_uri(uri)
-      unless @crawled_uris.include?(uri)
-        if /^http/.match(uri)
-          @waiting_uris << uri
-        else
-          @waiting_uris << @root_uri + uri
-        end
+    def add_to_uncrawled_list(page_url, href)
+      absolute_url = URI.join(page_url, href).to_s
+      unless @crawled_list.include?(absolute_url) or @uncrawled_list.include?(absolute_url)
+        @uncrawled_list << absolute_url
       end
     end
   end
 end
-
